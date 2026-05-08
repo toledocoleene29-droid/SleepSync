@@ -18,6 +18,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ logs, settings, onAddLog, onDeleteLog, onUpdateSettings, onLogout }: DashboardProps) {
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [bedTime, setBedTime] = useState('23:00');
   const [wakeTime, setWakeTime] = useState('07:30');
   const [quality, setQuality] = useState(4);
@@ -32,11 +33,20 @@ export function Dashboard({ logs, settings, onAddLog, onDeleteLog, onUpdateSetti
 
   const handleAdd = () => {
     onAddLog({
-      date: new Date().toISOString(),
+      date: new Date(selectedDate).toISOString(),
       bedTime,
       wakeTime,
       quality,
       duration: calculateDuration(bedTime, wakeTime)
+    });
+    // Reset date to today after adding
+    setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
+  };
+
+  const updateReminder = (type: 'bed' | 'wake', value: string) => {
+    onUpdateSettings({
+      ...settings,
+      [type === 'bed' ? 'bedtimeReminder' : 'wakeUpReminder']: value
     });
   };
 
@@ -90,14 +100,19 @@ export function Dashboard({ logs, settings, onAddLog, onDeleteLog, onUpdateSetti
         <div className="bg-white rounded-[32px] p-5 shadow-sm border border-accent/20 space-y-4">
             <div className="grid grid-cols-3 gap-2">
                 <InputWrapper label="Date" icon={<Calendar className="w-3 h-3" />}>
-                   <input type="text" defaultValue={format(new Date(), 'dd/MM/yyyy')} className="w-full text-xs font-medium focus:outline-none" readOnly />
+                   <input 
+                    type="date" 
+                    value={selectedDate} 
+                    onChange={e => setSelectedDate(e.target.value)}
+                    className="w-full text-xs font-medium focus:outline-none bg-transparent" 
+                   />
                 </InputWrapper>
                 <InputWrapper label="Bedtime" icon={<Moon className="w-3 h-3" />}>
                    <input 
                     type="time" 
                     value={bedTime} 
                     onChange={e => setBedTime(e.target.value)}
-                    className="w-full text-xs font-medium focus:outline-none" 
+                    className="w-full text-xs font-medium focus:outline-none bg-transparent" 
                    />
                 </InputWrapper>
                 <InputWrapper label="Wake-up" icon={<Sun className="w-3 h-3" />}>
@@ -105,7 +120,7 @@ export function Dashboard({ logs, settings, onAddLog, onDeleteLog, onUpdateSetti
                     type="time" 
                     value={wakeTime} 
                     onChange={e => setWakeTime(e.target.value)}
-                    className="w-full text-xs font-medium focus:outline-none" 
+                    className="w-full text-xs font-medium focus:outline-none bg-transparent" 
                    />
                 </InputWrapper>
             </div>
@@ -146,13 +161,13 @@ export function Dashboard({ logs, settings, onAddLog, onDeleteLog, onUpdateSetti
                 icon={<Moon className="w-4 h-4" />} 
                 label="Bedtime:" 
                 time={settings.bedtimeReminder} 
-                onSet={() => {}}
+                onTimeChange={(val) => updateReminder('bed', val)}
             />
             <ReminderRow 
                 icon={<Sun className="w-4 h-4" />} 
                 label="Wake-up:" 
                 time={settings.wakeUpReminder} 
-                onSet={() => {}}
+                onTimeChange={(val) => updateReminder('wake', val)}
             />
             <div className="pt-2">
                 <div className="flex items-start gap-2 opacity-50">
@@ -288,7 +303,7 @@ function InputWrapper({ label, icon, children }: { label: string, icon: React.Re
   );
 }
 
-function ReminderRow({ icon, label, time, onSet }: { icon: React.ReactNode, label: string, time: string, onSet: () => void }) {
+function ReminderRow({ icon, label, time, onTimeChange }: { icon: React.ReactNode, label: string, time: string, onTimeChange: (val: string) => void }) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -297,15 +312,17 @@ function ReminderRow({ icon, label, time, onSet }: { icon: React.ReactNode, labe
         </div>
         <div className="flex flex-col leading-none">
           <span className="text-[10px] font-black text-text-dim/60 uppercase tracking-tighter mb-1">{label}</span>
-          <span className="text-sm font-black text-primary">{time}</span>
+          <input 
+            type="time" 
+            value={time} 
+            onChange={(e) => onTimeChange(e.target.value)}
+            className="text-sm font-black text-primary bg-transparent focus:outline-none cursor-pointer"
+          />
         </div>
       </div>
-      <button 
-        onClick={onSet}
-        className="bg-accent h-7 px-3 rounded-lg flex items-center gap-1 text-[9px] font-black text-primary hover:bg-accent/80 transition-colors uppercase"
-      >
-        <Bell className="w-3 h-3" /> Set
-      </button>
+      <div className="bg-accent h-7 px-3 rounded-lg flex items-center gap-1 text-[9px] font-black text-primary uppercase opacity-60">
+        <Clock className="w-3 h-3" /> Scheduled
+      </div>
     </div>
   );
 }
