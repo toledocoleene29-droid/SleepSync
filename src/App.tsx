@@ -1,0 +1,194 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect } from 'react';
+import { Auth } from './components/Auth';
+import { Dashboard } from './components/Dashboard';
+import { AuthState, SleepLog, UserSettings } from './types';
+import { motion, AnimatePresence } from 'motion/react';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from './firebase';
+
+const INITIAL_LOGS: SleepLog[] = [
+  {
+    id: '1',
+    date: '2026-04-05T00:00:00Z',
+    bedTime: '23:15',
+    wakeTime: '07:20',
+    quality: 5,
+    duration: 485
+  },
+  {
+    id: '2',
+    date: '2026-04-04T00:00:00Z',
+    bedTime: '00:00',
+    wakeTime: '07:30',
+    quality: 4,
+    duration: 450
+  },
+  {
+    id: '3',
+    date: '2026-04-03T00:00:00Z',
+    bedTime: '22:45',
+    wakeTime: '06:50',
+    quality: 5,
+    duration: 485
+  }
+];
+
+const INITIAL_SETTINGS: UserSettings = {
+  userName: '',
+  bedtimeReminder: '22:30',
+  wakeUpReminder: '07:00',
+  remindersEnabled: false
+};
+
+export default function App() {
+  const [authState, setAuthState] = useState<AuthState>('login');
+  const [logs, setLogs] = useState<SleepLog[]>([]);
+  const [settings, setSettings] = useState<UserSettings>(INITIAL_SETTINGS);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Firebase Auth Listener
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setAuthState('authenticated');
+      } else {
+        setAuthState('login');
+      }
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Load local data
+  useEffect(() => {
+    const savedLogs = localStorage.getItem('sleep_logs');
+    const savedSettings = localStorage.getItem('sleep_settings');
+
+    if (savedLogs) setLogs(JSON.parse(savedLogs));
+    else setLogs(INITIAL_LOGS);
+
+    if (savedSettings) setSettings(JSON.parse(savedSettings));
+  }, []);
+
+  // Save local data
+  useEffect(() => {
+    localStorage.setItem('sleep_logs', JSON.stringify(logs));
+  }, [logs]);
+
+  useEffect(() => {
+    localStorage.setItem('sleep_settings', JSON.stringify(settings));
+  }, [settings]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Error signing out:", err);
+    }
+  };
+
+  const handleAddLog = (newLog: Omit<SleepLog, 'id'>) => {
+    const log: SleepLog = {
+      ...newLog,
+      id: Math.random().toString(36).substr(2, 9)
+    };
+    setLogs(prev => [log, ...prev]);
+  };
+
+  const handleDeleteLog = (id: string) => {
+    setLogs(prev => prev.filter(log => log.id !== id));
+  };
+
+  return (
+    <div className="min-h-screen bg-secondary flex flex-col items-center">
+      <div className="w-full max-w-[500px] min-h-screen bg-secondary shadow-xl overflow-x-hidden flex flex-col">
+        <AnimatePresence mode="wait">
+          {isLoading ? (
+            <motion.div 
+              key="loader"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 flex items-center justify-center bg-secondary"
+            >
+              <div className="flex flex-col items-center gap-4">
+                <motion.div 
+                  animate={{ scale: [1, 1.1, 1], rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-16 h-16 rounded-full bg-accent flex items-center justify-center text-primary"
+                >
+                  <div className="flex items-center justify-center">
+                    <MoonIcon size={32} strokeWidth={1.5} />
+                  </div>
+                </motion.div>
+                <div className="flex gap-1">
+                  {[0, 1, 2].map(i => (
+                    <motion.div
+                      key={i}
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.1 }}
+                      className="w-1.5 h-1.5 rounded-full bg-primary"
+                    />
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          ) : authState === 'authenticated' ? (
+            <motion.div
+              key="dashboard"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex-1"
+            >
+              <Dashboard 
+                logs={logs}
+                settings={settings}
+                onAddLog={handleAddLog}
+                onDeleteLog={handleDeleteLog}
+                onUpdateSettings={setSettings}
+                onLogout={handleLogout}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="auth"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex-1"
+            >
+              <Auth 
+                 view={authState as any} 
+                 onViewChange={(v) => setAuthState(v as any)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+// Simple Moon icon placeholder for local scope if needed
+function MoonIcon({ size = 24, strokeWidth = 2 }) {
+  return (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      width={size} 
+      height={size} 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth={strokeWidth} 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    >
+      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+    </svg>
+  );
+}
