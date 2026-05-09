@@ -94,24 +94,39 @@ export default function App() {
   };
 
   const handleEnableNotifications = async () => {
+    // Check if the browser supports notifications at all
     if (!("Notification" in window)) {
-      alert("This browser does not support desktop notifications");
+      // Fallback for mobile/browsers without Notification API
+      setSettings(prev => ({ ...prev, remindersEnabled: true }));
+      alert("Note: Your browser doesn't support system-level notifications, but we've enabled in-app reminders for you! Keep the app open to receive alerts.");
       return;
     }
 
     try {
+      // In some environments, Permission might be requested via a callback or promise
       const permission = await Notification.requestPermission();
+      
       if (permission === "granted") {
         setSettings(prev => ({ ...prev, remindersEnabled: true }));
-        new Notification("Sleep Sync", { 
-          body: "Notifications enabled! We'll remind you when it's time to sleep.",
-          icon: "/moon-icon.png" 
-        });
+        try {
+          new Notification("Sleep Sync", { 
+            body: "Notifications enabled! We'll remind you when it's time to sleep.",
+          });
+        } catch (e) {
+          // Fallback if constructor fails (common on some mobile browsers even if API exists)
+          alert("Notifications enabled! We'll show in-app reminders if system alerts are blocked.");
+        }
+      } else if (permission === "denied") {
+        alert("Notification permission was denied. Please update your browser settings or site permissions to enable this feature.");
       } else {
-        alert("Please enable notifications in your browser settings to receive reminders.");
+        // Dismissed / Default
+        alert("You'll need to allow notifications to receive sleep reminders.");
       }
     } catch (error) {
       console.error("Error requesting notification permission:", error);
+      // Final fallback
+      setSettings(prev => ({ ...prev, remindersEnabled: true }));
+      alert("We encountered an error, but we've enabled in-app reminders for you!");
     }
   };
 
@@ -127,18 +142,29 @@ export default function App() {
 
       if (currentTime === lastNotifiedTime) return;
 
-      if (currentTime === settings.bedtimeReminder) {
-        new Notification("Sleep Sync", {
-          body: "It's time to wind down and get some rest! 🌙",
-        });
+      const triggerNotification = (title: string, body: string) => {
+        // Try native notification first
+        if ("Notification" in window && Notification.permission === "granted") {
+          try {
+            new Notification(title, { body });
+            lastNotifiedTime = currentTime;
+            return;
+          } catch (e) {
+            // Fallback to browser alert if constructor fails
+          }
+        }
+        
+        // Final fallback: Browser Alert (works everywhere)
+        alert(`${title}: ${body}`);
         lastNotifiedTime = currentTime;
+      };
+
+      if (currentTime === settings.bedtimeReminder) {
+        triggerNotification("Sleep Sync", "It's time to wind down and get some rest! 🌙");
       }
 
       if (currentTime === settings.wakeUpReminder) {
-        new Notification("Sleep Sync", {
-          body: "Good morning! Time for a fresh start. ☀️",
-        });
-        lastNotifiedTime = currentTime;
+        triggerNotification("Sleep Sync", "Good morning! Time for a fresh start. ☀️");
       }
     };
 
