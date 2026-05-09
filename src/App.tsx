@@ -93,6 +93,62 @@ export default function App() {
     }
   };
 
+  const handleEnableNotifications = async () => {
+    if (!("Notification" in window)) {
+      alert("This browser does not support desktop notifications");
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        setSettings(prev => ({ ...prev, remindersEnabled: true }));
+        new Notification("Sleep Sync", { 
+          body: "Notifications enabled! We'll remind you when it's time to sleep.",
+          icon: "/moon-icon.png" 
+        });
+      } else {
+        alert("Please enable notifications in your browser settings to receive reminders.");
+      }
+    } catch (error) {
+      console.error("Error requesting notification permission:", error);
+    }
+  };
+
+  // Notification Polling Logic
+  useEffect(() => {
+    if (!settings.remindersEnabled || authState !== 'authenticated') return;
+
+    let lastNotifiedTime: string | null = null;
+
+    const checkReminders = () => {
+      const now = new Date();
+      const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+      if (currentTime === lastNotifiedTime) return;
+
+      if (currentTime === settings.bedtimeReminder) {
+        new Notification("Sleep Sync", {
+          body: "It's time to wind down and get some rest! 🌙",
+        });
+        lastNotifiedTime = currentTime;
+      }
+
+      if (currentTime === settings.wakeUpReminder) {
+        new Notification("Sleep Sync", {
+          body: "Good morning! Time for a fresh start. ☀️",
+        });
+        lastNotifiedTime = currentTime;
+      }
+    };
+
+    // Check every 30 seconds for better reliability with minute boundary
+    const interval = setInterval(checkReminders, 30000);
+    checkReminders(); // Initial check
+
+    return () => clearInterval(interval);
+  }, [settings.bedtimeReminder, settings.wakeUpReminder, settings.remindersEnabled, authState]);
+
   const handleAddLog = (newLog: Omit<SleepLog, 'id'>) => {
     const log: SleepLog = {
       ...newLog,
@@ -153,6 +209,7 @@ export default function App() {
                 onDeleteLog={handleDeleteLog}
                 onUpdateSettings={setSettings}
                 onLogout={handleLogout}
+                onEnableNotifications={handleEnableNotifications}
               />
             </motion.div>
           ) : (

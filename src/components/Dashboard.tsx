@@ -15,9 +15,10 @@ interface DashboardProps {
   onDeleteLog: (id: string) => void;
   onUpdateSettings: (settings: UserSettings) => void;
   onLogout: () => void;
+  onEnableNotifications: () => void;
 }
 
-export function Dashboard({ logs, settings, onAddLog, onDeleteLog, onUpdateSettings, onLogout }: DashboardProps) {
+export function Dashboard({ logs, settings, onAddLog, onDeleteLog, onUpdateSettings, onLogout, onEnableNotifications }: DashboardProps) {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [bedTime, setBedTime] = useState('23:00');
   const [wakeTime, setWakeTime] = useState('07:30');
@@ -172,9 +173,17 @@ export function Dashboard({ logs, settings, onAddLog, onDeleteLog, onUpdateSetti
             <div className="pt-2">
                 <div className="flex items-start gap-2 opacity-50">
                     <div className="w-3 h-3 rounded-full bg-primary/40 mt-1" />
-                    <p className="text-[9px] font-medium leading-relaxed">
+                    <p className="text-[9px] font-medium leading-relaxed text-text-dim">
                         Reminders work if notifications are allowed <br/>
-                        <button className="underline font-bold">Enable notifications</button>
+                        <button 
+                          onClick={onEnableNotifications}
+                          className={cn(
+                            "underline font-bold transition-colors",
+                            settings.remindersEnabled ? "text-green-600 no-underline cursor-default" : "text-primary hover:text-primary/70"
+                          )}
+                        >
+                          {settings.remindersEnabled ? "✓ Notifications active" : "Enable notifications"}
+                        </button>
                     </p>
                 </div>
             </div>
